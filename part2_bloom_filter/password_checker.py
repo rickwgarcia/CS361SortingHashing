@@ -48,8 +48,14 @@ class password_checker:
         """
         Split the data into train and test sets.
         """
-        path = Path(hash_file)
-        with path.open("r", encoding="utf-8") as file:
+        # Use .open on traversables (e.g. importlib.resources paths inside a .pyz).
+        # pathlib.Path() rejects zipfile.Path in Python 3.13+.
+        opener = getattr(hash_file, "open", None)
+        if opener is not None:
+            ctx = opener("r", encoding="utf-8")
+        else:
+            ctx = Path(hash_file).open("r", encoding="utf-8")
+        with ctx as file:
             lines = file.readlines()
         split_at = int(len(lines) * self.split)
         return lines[:split_at], lines[split_at:]
@@ -101,7 +107,7 @@ class password_checker:
         # set up traditional set for comparison
         traditional_set = set(line.strip() for line in self.test_set)
 
-        bloom_filter_memory = sys.getsizeof(self.bloom_filter)
+        bloom_filter_memory = sys.getsizeof(self.bloom_filter.byte_array)
         traditional_set_memory = sys.getsizeof(traditional_set)
         print(f"\nBloom filter memory usage: {bloom_filter_memory} bytes")
         print(f"Traditional set memory usage: {traditional_set_memory} bytes")
